@@ -199,6 +199,7 @@ class QcloudManager(object):
             ip = j_data.get('origin')
             info('got my ip %s', ip)
             await self.changeDomainIp(ip, '@')
+            await self.changeDomainIp(ip, 'wx')
             await self.changeDomainIp(ip, 'blog')
             await self.changeDomainIp(ip, 'www')
 
