@@ -97,7 +97,20 @@ class QcloudManager(object):
                         data = txt.decode(str_encoding, 'ignore')
 #-#                        warn('ignore decode error from %s', url)
                 elif fmt == 'json':
-                    data = await resp.json(encoding=json_encoding, loads=json_loads)
+                    try:
+                        data = await resp.json(encoding=json_encoding, loads=json_loads)
+                    except aiohttp.client_exceptions.ContentTypeError:
+#-#                        warn('ContentTypeError, try decode json ...')
+                        try:
+                            data = await resp.text(encoding=json_encoding)
+                        except UnicodeDecodeError:
+                            txt = await resp.read()
+                            data = txt.decode(str_encoding, 'ignore')
+                        try:
+                            data = json.loads(data)
+                        except:
+                            error('json except', exc_info=True)
+
 #-#                    if not data:
 #-#                    if 'json' not in resp.headers.get('content-type', ''):
 #-#                        warn('data not in json? %s', resp.headers.get('content-type', ''))
@@ -111,17 +124,19 @@ class QcloudManager(object):
                         streaming_cb(url, chunk)
                 ok = True
                 break
-            except aiohttp.errors.ServerDisconnectedError:
+            except aiohttp.ServerDisconnectedError:
                 info('%sServerDisconnectedError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs))
             except asyncio.TimeoutError:
                 info('%sTimeoutError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs))
-            except ClientConnectionError:
+            except aiohttp.ClientConnectionError:
                 error('%sConnectionError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs))
-            except ClientHttpProcessingError:
-                error('%sClientHttpProcessingError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), exc_info=True)
-            except ClientTimeoutError:
-                error('%sClientTimeoutError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs))
-            except ClientError:
+#-#            except aiohttp.errors.ClientHttpProcessingError:
+#-#                error('%sClientHttpProcessingError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), exc_info=True)
+            except aiohttp.client_exceptions.ContentTypeError:
+                error('%sContentTypeError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), exc_info=True)
+#-#            except aiohttp.ClientTimeoutError:
+#-#                error('%sClientTimeoutError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs))
+            except aiohttp.ClientError:
                 error('%sClientError %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), exc_info=True)
             except UnicodeDecodeError:
 #-#                txt = await resp.read()
@@ -129,6 +144,8 @@ class QcloudManager(object):
                 error('%sUnicodeDecodeError %s %s %s %s\n%s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), pcformat(resp.headers), txt[:100], exc_info=True)
                 break
 #-#                raise e
+            except Exception:
+                error('%sException %s %s %s', ('%s/%s ' % (nr_try + 1, max_try)) if max_try > 1 else '', url, pcformat(args), pcformat(kwargs), exc_info=True)
             finally:
                 if resp:
                     resp.release()
