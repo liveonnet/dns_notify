@@ -208,17 +208,42 @@ class QcloudManager(object):
             else:
                 info('%s(id %s) ip not change %s', name, record_id, old_ip)
         else:
-            info('no record matching sub domain %s', sub_domain)
+            info('no record matching sub domain %s, try to create ...', sub_domain)
+            rtn = await self.addRecord(ip, sub_domain)
+            info('%s create %s res:\n%s', sub_domain, ip, pcformat(rtn))
 
     async def changeIp(self):
         _, j_data, ok = await self._getData('http://httpbin.org/ip', timeout=5, my_fmt='json')
         if ok and j_data:
             ip = j_data.get('origin')
+            ip = ip.split(',')[0]  # 可能返回如下格式 "1.2.3.4, 1.2.3.4"
             info('got my ip %s', ip)
+            info('target domain %s', self.conf['Domain'])
             await self.changeDomainIp(ip, '@')
             await self.changeDomainIp(ip, 'wx')
             await self.changeDomainIp(ip, 'blog')
             await self.changeDomainIp(ip, 'www')
+
+    async def addRecord(self, val, sub_domain='', record_type='A', record_line='默认'):
+        rtn = {}
+        url = self.conf['url']
+        d = {'domain': self.conf['Domain'],
+             'recordLine': record_line,
+             'value': val,
+             }
+        if sub_domain:
+             d['subDomain'] = sub_domain
+        if record_type:
+             d['recordType'] = record_type
+        d.update(self.getPubArg('RecordCreate'))
+        self.Sign('GET', url, d)
+        _, j_data, ok = await self._getData(url, params=d, timeout=10, my_fmt='json', my_json_encoding='utf8')
+        if ok and j_data['code'] == 0:
+#-#            debug('resp %s', pcformat(j_data))
+            rtn = j_data.get('data', {}).get('record', {})
+        else:
+            info('error ? %s %s', ok, pcformat(j_data))
+        return rtn
 
 
 if __name__ == '__main__':
