@@ -1,5 +1,7 @@
 #-#import pathlib
+import sys
 import json
+from datetime import datetime
 import yaml
 import asyncio
 import aiohttp
@@ -13,8 +15,10 @@ import hmac
 from urllib import parse
 from time import time
 from random import randint
+sys.path.append('/home/pi/work/v_pn/prom_notify')
 from applib.tools_lib import pcformat
 from applib.conf_lib import getConf
+from applib.sendmail_lib import send_mail
 from applib.log_lib import app_log
 info, debug, error, warn = app_log.info, app_log.debug, app_log.error, app_log.warning
 
@@ -205,6 +209,12 @@ class QcloudManager(object):
             if old_ip != ip:
                 rtn = await self.changeRecord(record_id, ip, sub_domain)
                 info('%s(id %s) ip %s -> %s res:\n%s', name, record_id, old_ip, ip, pcformat(rtn))
+                if sub_domain == '@':
+                    try:
+                        sendmail_conf = getConf('config/dn.yaml', root_key='sendmail')
+                        send_mail(sendmail_conf['smtp_server'], sendmail_conf['smtp_port'], sendmail_conf['user'], sendmail_conf['pwd'], sendmail_conf['user'], (sendmail_conf['user'], ), [], f'ip地址变化 {self.conf["Domain"]} {datetime.now().strftime("%Y%m%d %H:%M:%S")}', f'{old_ip} --> {ip}', [])
+                    except:
+                        pass
             else:
                 info('%s(id %s) ip not change %s', name, record_id, old_ip)
         else:
